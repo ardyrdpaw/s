@@ -69,3 +69,20 @@ main{padding-top:24px}
 /* Admin: hide footer clock format controls (toggleable) */
 #clockControls{display:none !important}
 
+/* Theme: dark mode */
+body.theme-dark{background:#0b0e12; color:#e6eef6}
+body.theme-dark .topbar{background:#071018; border-bottom:1px solid rgba(255,255,255,0.03)}
+body.theme-dark .card, body.theme-dark .modal-content{background:#0f1720; color:#e6eef6; border:1px solid rgba(255,255,255,0.04)}
+body.theme-dark .sidebar{background:#0b1216}
+body.theme-dark .sidebar .nav-link{color:rgba(230,238,246,0.9)}
+body.theme-dark .sidebar .nav-link:hover{background:rgba(255,255,255,0.03)}
+body.theme-dark .site-hero{background:linear-gradient(135deg,#082033,#0c3b52)}
+body.theme-dark table.dataTable thead th{background:rgba(255,255,255,0.03); color:#cfe7ff}
+body.theme-dark .form-control, body.theme-dark .dataTables_wrapper .dataTables_filter input{background:#0a1720; color:#e6eef6; border:1px solid rgba(255,255,255,0.04)}
+body.theme-dark .btn{border-color:rgba(255,255,255,0.03)}
+body.theme-dark .badge{background:rgba(255,255,255,0.06); color:#e6eef6}
+body.theme-dark .app-footer{background:#071018; color:#9fb6c8; border-top-color:rgba(255,255,255,0.03)}
+
+/* small tweak: ensure drag handle contrast */
+.theme-dark .drag-handle{color:#cfdff0 !important}
+

@@ -28,8 +28,15 @@ $conn->query("CREATE TABLE IF NOT EXISTS user_access (
     can_read TINYINT(1) DEFAULT 0,
     can_update TINYINT(1) DEFAULT 0,
     can_delete TINYINT(1) DEFAULT 0,
+    visible TINYINT(1) DEFAULT 0,
     UNIQUE KEY ux_user_menu (user_id, menu_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// Add visible column if missing (upgrade path for existing installs)
+$colRes = $conn->query("SHOW COLUMNS FROM user_access LIKE 'visible'");
+if ($colRes && $colRes->num_rows === 0) {
+    $conn->query("ALTER TABLE user_access ADD COLUMN visible TINYINT(1) DEFAULT 0");
+} 
 
 // Ensure menus table exists
 $conn->query("CREATE TABLE IF NOT EXISTS menus (
@@ -57,7 +64,8 @@ if ($res) {
 switch ($action) {
     case 'get_menus':
         $menus = [];
-        $res = $conn->query("SELECT menu_key as `key`, label FROM menus ORDER BY sort_order ASC, label ASC");
+        // include protected flag so access UI can react to it
+        $res = $conn->query("SELECT menu_key as `key`, label, COALESCE(`protected`,0) as `protected` FROM menus ORDER BY sort_order ASC, label ASC");
         if ($res) {
             while ($row = $res->fetch_assoc()) {
                 $menus[] = $row;
@@ -75,7 +83,7 @@ switch ($action) {
                 echo json_encode(['error' => 'Forbidden']);
                 break;
             }
-            $res = $conn->query("SELECT menu_key, `full`, can_create, can_read, can_update, can_delete FROM user_access WHERE user_id=".intval($user_id));
+            $res = $conn->query("SELECT menu_key, `full`, can_create, can_read, can_update, can_delete, visible FROM user_access WHERE user_id=".intval($user_id));
             if ($res) {
                 while ($r = $res->fetch_assoc()) {
                     $rows[$r['menu_key']] = [
@@ -83,7 +91,8 @@ switch ($action) {
                         'create' => intval($r['can_create']),
                         'read' => intval($r['can_read']),
                         'update' => intval($r['can_update']),
-                        'delete' => intval($r['can_delete'])
+                        'delete' => intval($r['can_delete']),
+                        'visible' => intval($r['visible'])
                     ];
                 }
             }
@@ -113,8 +122,8 @@ switch ($action) {
         }
         // Remove existing for the user
         $conn->query("DELETE FROM user_access WHERE user_id=".intval($user_id));
-        // Insert new
-        $stmt = $conn->prepare("INSERT INTO user_access (user_id, menu_key, `full`, can_create, can_read, can_update, can_delete) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        // Insert new (include visible)
+        $stmt = $conn->prepare("INSERT INTO user_access (user_id, menu_key, `full`, can_create, can_read, can_update, can_delete, visible) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         foreach ($permissions as $perm) {
             $menu = $conn->real_escape_string($perm['menu'] ?? '');
             $full = intval($perm['full'] ?? 0);
@@ -122,7 +131,8 @@ switch ($action) {
             $r = intval($perm['read'] ?? 0);
             $u = intval($perm['update'] ?? 0);
             $d = intval($perm['delete'] ?? 0);
-            $stmt->bind_param('isiiiii', $user_id, $menu, $full, $c, $r, $u, $d);
+            $v = intval($perm['visible'] ?? 0);
+            $stmt->bind_param('isiiiiii', $user_id, $menu, $full, $c, $r, $u, $d, $v);
             $stmt->execute();
         }
         echo json_encode(['success' => true]);

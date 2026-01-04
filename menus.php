@@ -18,6 +18,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin'){
           <tr>
             <th>Label</th>
             <th>Key</th>
+            <th class="text-center">Protected</th>
             <th>Sort</th>
             <th>Action</th>
           </tr>
@@ -52,6 +53,11 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin'){
             <label class="form-label">Sort Order</label>
             <input type="number" id="menuSort" name="sort_order" class="form-control" value="0">
           </div>
+          <div class="mb-3 form-check form-switch">
+            <input type="hidden" name="protected" value="0">
+            <input type="checkbox" class="form-check-input" id="menuProtected" name="protected" value="1">
+            <label class="form-check-label" for="menuProtected">Protected (prevents hiding for users)</label>
+          </div>
           <button class="btn btn-primary" type="submit">Save</button>
         </form>
       </div>
@@ -68,6 +74,7 @@ $(function(){
         rows += '<tr data-id="'+m.id+'">';
         rows += '<td>'+m.label+'</td>';
         rows += '<td>'+m.menu_key+'</td>';
+        rows += '<td class="text-center">'+(m.protected ? '<span class="badge bg-danger">Yes</span>' : '')+'</td>';
         rows += '<td>'+m.sort_order+'</td>';
         rows += '<td><button class="btn btn-sm btn-secondary upMenuBtn" data-id="'+m.id+'" title="Move up">↑</button> <button class="btn btn-sm btn-secondary downMenuBtn" data-id="'+m.id+'" title="Move down">↓</button> <button class="btn btn-sm btn-warning editMenuBtn" data-id="'+m.id+'">Edit</button> <button class="btn btn-sm btn-danger deleteMenuBtn" data-id="'+m.id+'">Delete</button></td>';
         rows += '</tr>';
@@ -93,6 +100,8 @@ $(function(){
         $('#menuLabel').val(found.label);
         $('#menuKey').val(found.menu_key).prop('readonly', true);
         $('#menuSort').val(found.sort_order);
+        // set protected state
+        $('#menuProtected').prop('checked', !!found.protected);
         $('#menuModal').modal('show');
       }
     });
@@ -102,7 +111,7 @@ $(function(){
     if(!confirm('Delete this menu and remove associated access entries?')) return;
     var id = $(this).data('id');
     $.post('php/menus_api.php?action=delete', {id: id}, function(resp){
-      if(resp.success) { showCrudAlert('Deleted', 'success'); loadMenus(); }
+      if(resp.success) { showCrudAlert('Deleted', 'success'); location.reload(); }
       else showCrudAlert(resp.error || 'Failed', 'danger');
     }, 'json');
   });
@@ -120,7 +129,7 @@ $(function(){
     var label2 = prev.find('td').eq(0).text();
     // swap sorts
     $.post('php/menus_api.php?action=edit', {id: id, label: label1, sort_order: sort2}, function(){
-      $.post('php/menus_api.php?action=edit', {id: id2, label: label2, sort_order: sort1}, function(){ loadMenus(); });
+      $.post('php/menus_api.php?action=edit', {id: id2, label: label2, sort_order: sort1}, function(){ location.reload(); });
     }, 'json');
   });
   $(document).on('click', '.downMenuBtn', function(){
@@ -135,7 +144,7 @@ $(function(){
     var label2 = next.find('td').eq(0).text();
     // swap sorts
     $.post('php/menus_api.php?action=edit', {id: id, label: label1, sort_order: sort2}, function(){
-      $.post('php/menus_api.php?action=edit', {id: id2, label: label2, sort_order: sort1}, function(){ loadMenus(); });
+      $.post('php/menus_api.php?action=edit', {id: id2, label: label2, sort_order: sort1}, function(){ location.reload(); });
     }, 'json');
   });
 
@@ -145,7 +154,7 @@ $(function(){
     var action = id ? 'edit' : 'add';
     var fd = $(this).serialize();
     $.post('php/menus_api.php?action='+action, fd, function(resp){
-      if(resp.success){ $('#menuModal').modal('hide'); loadMenus(); showCrudAlert('Saved', 'success'); }
+      if(resp.success){ $('#menuModal').modal('hide'); showCrudAlert('Saved', 'success'); location.reload(); }
       else showCrudAlert(resp.error || 'Failed', 'danger');
     }, 'json');
   });

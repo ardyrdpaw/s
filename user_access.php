@@ -27,6 +27,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin'){
           <thead>
             <tr>
               <th>Menu</th>
+              <th class="text-center"><div class="form-check"><input id="selectAllVisible" class="form-check-input" type="checkbox"><label class="form-check-label ms-1">Visible</label></div></th>
               <th class="text-center"><div class="form-check"><input id="selectAllFull" class="form-check-input" type="checkbox"><label class="form-check-label ms-1">Full</label></div></th>
               <th class="text-center"><div class="form-check"><input id="selectAllCreate" class="form-check-input" type="checkbox"><label class="form-check-label ms-1">Create</label></div></th>
               <th class="text-center"><div class="form-check"><input id="selectAllRead" class="form-check-input" type="checkbox"><label class="form-check-label ms-1">Read</label></div></th>
@@ -61,8 +62,9 @@ $(function(){
     $.getJSON('php/access_api.php?action=get_menus', function(resp){
       var rows = '';
       resp.data.forEach(function(m){
-        rows += '<tr data-menu="'+m.key+'">';
+        rows += '<tr data-menu="'+m.key+'" data-protected="'+(m.protected ? 1 : 0)+'">';
         rows += '<td>'+m.label+'</td>';
+        rows += '<td class="text-center"><div class="form-check form-switch"><input class="form-check-input visibleToggle" type="checkbox"></div></td>';
         rows += '<td class="text-center"><div class="form-check form-switch"><input class="form-check-input fullToggle" type="checkbox"></div></td>';
         rows += '<td class="text-center"><div class="form-check form-switch"><input class="form-check-input createToggle" type="checkbox"></div></td>';
         rows += '<td class="text-center"><div class="form-check form-switch"><input class="form-check-input readToggle" type="checkbox"></div></td>';
@@ -71,6 +73,10 @@ $(function(){
         rows += '</tr>';
       });
       $('#accessTable tbody').html(rows);
+      // visually mark rows with visible unchecked (default off)
+      $('#accessTable tbody tr').each(function(){
+        if (!$(this).find('.visibleToggle').prop('checked')) $(this).addClass('table-secondary text-muted');
+      });
     });
   }
 
@@ -85,8 +91,7 @@ $(function(){
         Object.keys(resp.data).forEach(function(menuKey){
           var row = $('#accessTable tbody tr[data-menu="'+menuKey+'"]');
           if(row.length){
-            var p = resp.data[menuKey];
-            row.find('.fullToggle').prop('checked', !!p.full);
+            var p = resp.data[menuKey];            row.find('.visibleToggle').prop('checked', !!p.visible);            row.find('.fullToggle').prop('checked', !!p.full);
             row.find('.createToggle').prop('checked', !!p.create);
             row.find('.readToggle').prop('checked', !!p.read);
             row.find('.updateToggle').prop('checked', !!p.update);
@@ -98,19 +103,51 @@ $(function(){
   }
 
   // when Full is toggled, set/clear other toggles in the same row
+  // NOTE: Visible will only be set when Full is toggled ON—turning Full OFF will NOT auto-clear Visible
   $(document).on('change', '.fullToggle', function(){
     var row = $(this).closest('tr');
     var checked = $(this).prop('checked');
     row.find('.createToggle, .readToggle, .updateToggle, .deleteToggle').prop('checked', checked);
+    if (checked) {
+      // when enabling Full, also mark Visible (so admin menus become visible automatically)
+      row.find('.visibleToggle').prop('checked', true);
+      row.removeClass('table-secondary text-muted');
+    }
     updateHeaderState();
   });
 
   // header select-all handlers
+  $('#selectAllVisible').on('change', function(){ 
+    $('#accessTable tbody .visibleToggle').prop('checked', this.checked);
+    // update row styles when toggling all visible
+    $('#accessTable tbody tr').each(function(){ if (!$(this).find('.visibleToggle').prop('checked')) $(this).addClass('table-secondary text-muted'); else $(this).removeClass('table-secondary text-muted'); });
+    updateHeaderState();
+  });
   $('#selectAllFull').on('change', function(){ $('#accessTable tbody .fullToggle').prop('checked', this.checked).trigger('change'); });
   $('#selectAllCreate').on('change', function(){ $('#accessTable tbody .createToggle').prop('checked', this.checked); updateHeaderState(); });
   $('#selectAllRead').on('change', function(){ $('#accessTable tbody .readToggle').prop('checked', this.checked); updateHeaderState(); });
   $('#selectAllUpdate').on('change', function(){ $('#accessTable tbody .updateToggle').prop('checked', this.checked); updateHeaderState(); });
   $('#selectAllDelete').on('change', function(){ $('#accessTable tbody .deleteToggle').prop('checked', this.checked); updateHeaderState(); });
+
+  // when Visible is toggled, update the row's visual state and header checkboxes (defer confirmation to Save)
+  $(document).on('change', '.visibleToggle', function(){
+    var row = $(this).closest('tr');
+    var checked = $(this).prop('checked');
+    if (checked) {
+      row.removeClass('table-secondary text-muted');
+    } else {
+      row.addClass('table-secondary text-muted');
+    }
+    updateHeaderState();
+  });
+
+  // when toggling header select-all for Visible, just toggle checkboxes and styles (confirmation on Save)
+  $('#selectAllVisible').on('change', function(){ 
+    $('#accessTable tbody .visibleToggle').prop('checked', this.checked);
+    // update row styles when toggling all visible
+    $('#accessTable tbody tr').each(function(){ if (!$(this).find('.visibleToggle').prop('checked')) $(this).addClass('table-secondary text-muted'); else $(this).removeClass('table-secondary text-muted'); });
+    updateHeaderState();
+  });
 
   // Update header checkbox states (checked/indeterminate) based on row checkboxes
   function updateHeaderState(){
@@ -126,6 +163,7 @@ $(function(){
     updateFor('.createToggle', 'selectAllCreate');
     updateFor('.readToggle', 'selectAllRead');
     updateFor('.updateToggle', 'selectAllUpdate');
+    updateFor('.visibleToggle', 'selectAllVisible');
     updateFor('.deleteToggle', 'selectAllDelete');
   }
 
@@ -134,20 +172,11 @@ $(function(){
     loadAccessForUser(uid);
   });
 
-  $('#saveAccessBtn').click(function(){
-    var uid = $('#accessUserSelect').val();
-    if(!uid){ alert('Please select a user'); return; }
-    var perms = [];
-    $('#accessTable tbody tr').each(function(){
-      var menu = $(this).data('menu');
-      var full = $(this).find('.fullToggle').prop('checked') ? 1 : 0;
-      var create = $(this).find('.createToggle').prop('checked') ? 1 : 0;
-      var read = $(this).find('.readToggle').prop('checked') ? 1 : 0;
-      var update = $(this).find('.updateToggle').prop('checked') ? 1 : 0;
-      var del = $(this).find('.deleteToggle').prop('checked') ? 1 : 0;
-      // if no permission set, we still send zero rows to clear existing
-      perms.push({menu: menu, full: full, create: create, read: read, update: update, delete: del});
-    });
+  // variables to hold pending save state when confirmation modal is used
+  var pendingPerms = null;
+  var pendingUid = null;
+
+  function sendSave(uid, perms){
     $.ajax({
       url: 'php/access_api.php?action=set',
       method: 'POST',
@@ -157,6 +186,74 @@ $(function(){
         showCrudAlert('Access saved successfully', 'success');
       }
     });
+  }
+
+  $('#saveAccessBtn').click(function(){
+    var uid = $('#accessUserSelect').val();
+    if(!uid){ alert('Please select a user'); return; }
+    var perms = [];
+    var protectedHidden = [];
+    $('#accessTable tbody tr').each(function(){
+      var menu = $(this).data('menu');
+      var visible = $(this).find('.visibleToggle').prop('checked') ? 1 : 0;
+      var full = $(this).find('.fullToggle').prop('checked') ? 1 : 0;
+      var create = $(this).find('.createToggle').prop('checked') ? 1 : 0;
+      var read = $(this).find('.readToggle').prop('checked') ? 1 : 0;
+      var update = $(this).find('.updateToggle').prop('checked') ? 1 : 0;
+      var del = $(this).find('.deleteToggle').prop('checked') ? 1 : 0;
+      if (!visible && ($(this).data('protected') === 1 || $(this).data('protected') === '1')) {
+        protectedHidden.push({key: menu, label: $(this).find('td:first').text().trim()});
+      }
+      // if no permission set, we still send zero rows to clear existing
+      perms.push({menu: menu, visible: visible, full: full, create: create, read: read, update: update, delete: del});
+    });
+
+    // If there are protected menus about to be hidden, show confirmation modal (unless skipped in localStorage)
+    if (protectedHidden.length && !localStorage.getItem('access_confirm_skip')){
+      var listHtml = '';
+      protectedHidden.forEach(function(p){
+        listHtml += '<div class="form-check">\n  <input class="form-check-input modal-prot-item" type="checkbox" checked data-menu="'+p.key+'"> <label class="form-check-label">'+p.label+'</label>\n</div>';
+      });
+      $('#confirmProtectedList').html(listHtml);
+      $('#confirmDontAsk').prop('checked', false);
+      pendingPerms = perms;
+      pendingUid = uid;
+      var modal = new bootstrap.Modal(document.getElementById('confirmProtectedModal'));
+      modal.show();
+      return;
+    }
+
+    // otherwise send directly
+    sendSave(uid, perms);
+  });
+
+  // modal confirm handlers
+  $('#confirmProtectedSave').on('click', function(){
+    var skip = $('#confirmDontAsk').prop('checked');
+    if (skip) localStorage.setItem('access_confirm_skip', '1');
+    // for any protected item the admin unchecked in the modal, keep it visible
+    $('#confirmProtectedList .modal-prot-item').each(function(){
+      var menuKey = $(this).data('menu');
+      var checked = $(this).prop('checked');
+      if (!checked) {
+        for (var i=0;i<pendingPerms.length;i++){
+          if (pendingPerms[i].menu === menuKey){ pendingPerms[i].visible = 1; break; }
+        }
+      }
+    });
+    // send pending save
+    sendSave(pendingUid, pendingPerms);
+    var mEl = document.getElementById('confirmProtectedModal');
+    var m = bootstrap.Modal.getInstance(mEl);
+    m.hide();
+    pendingPerms = null; pendingUid = null;
+  });
+
+  $('#confirmProtectedCancel').on('click', function(){
+    var mEl = document.getElementById('confirmProtectedModal');
+    var m = bootstrap.Modal.getInstance(mEl);
+    m.hide();
+    pendingPerms = null; pendingUid = null;
   });
 
   function showCrudAlert(message, type){
@@ -181,6 +278,30 @@ $(function(){
   });
 
 });
-</script>
+  </script>
+
+  <!-- Confirmation Modal for Protected Menus -->
+  <div class="modal fade" id="confirmProtectedModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirm Protected Menus</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>The following protected menus are about to be hidden for this user. Uncheck any you want to keep visible before saving.</p>
+          <div id="confirmProtectedList"></div>
+          <div class="form-check mt-3">
+            <input type="checkbox" class="form-check-input" id="confirmDontAsk">
+            <label class="form-check-label" for="confirmDontAsk">Don't ask me again (remember my choice on this browser)</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="confirmProtectedCancel" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" id="confirmProtectedSave" class="btn btn-primary">Confirm and Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
 <?php include 'layout_footer.php'; ?>
