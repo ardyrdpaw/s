@@ -12,7 +12,9 @@
             <tr>
               <th>ID</th>
               <th>Name</th>
-              <th>Email</th>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Keterangan</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -38,12 +40,12 @@
                 <input type="text" class="form-control" id="userName" name="name" required>
               </div>
               <div class="mb-3">
-                <label for="userEmail" class="form-label">Email</label>
-                <input type="email" class="form-control" id="userEmail" name="email" required>
+                <label for="userUsername" class="form-label">Username</label>
+                <input type="text" class="form-control" id="userUsername" name="username" required>
               </div>
               <div class="mb-3">
                 <label for="userPassword" class="form-label">Password</label>
-                <input type="password" class="form-control" id="userPassword" name="password" required>
+                <input type="password" class="form-control" id="userPassword" name="password" placeholder="leave blank to keep current">
               </div>
               <div class="mb-3">
                 <label for="userRole" class="form-label">Role</label>
@@ -51,6 +53,10 @@
                   <option value="admin">Admin</option>
                   <option value="user">User</option>
                 </select>
+              </div>
+              <div class="mb-3">
+                <label for="userKeterangan" class="form-label">Keterangan</label>
+                <textarea class="form-control" id="userKeterangan" name="keterangan" rows="3"></textarea>
               </div>
               <button type="submit" class="btn btn-primary">Save</button>
             </form>
@@ -67,7 +73,9 @@
                     rows += '<tr>' +
                         '<td>' + user.id + '</td>' +
                         '<td>' + user.name + '</td>' +
-                        '<td>' + user.email + '</td>' +
+                        '<td>' + (user.username || '') + '</td>' +
+                        '<td>' + (user.role || '') + '</td>' +
+                        '<td>' + (user.keterangan || '') + '</td>' +
                         '<td>' +
                         '<button class="btn btn-sm btn-warning editUserBtn" data-id="' + user.id + '">Edit</button> ' +
                         '<button class="btn btn-sm btn-danger deleteUserBtn" data-id="' + user.id + '">Delete</button>' +
@@ -91,8 +99,9 @@
             if(response.data) {
               $('#userId').val(response.data.id);
               $('#userName').val(response.data.name);
-              $('#userEmail').val(response.data.email);
+              $('#userUsername').val(response.data.username || '');
               $('#userRole').val(response.data.role);
+              $('#userKeterangan').val(response.data.keterangan || '');
               $('#userPassword').val('');
               $('#userModal').modal('show');
             }
@@ -111,9 +120,18 @@
         // Save User
         $('#userForm').submit(function(e) {
           e.preventDefault();
-          var formData = $(this).serialize();
-          var action = $('#userId').val() ? 'edit' : 'add';
-          $.post('php/user_api.php?action=' + action, formData, function(response) {
+          var id = $('#userId').val();
+          var action = id ? 'edit' : 'add';
+          var payload = {
+            id: id,
+            name: $('#userName').val(),
+            username: $('#userUsername').val(),
+            role: $('#userRole').val(),
+            keterangan: $('#userKeterangan').val()
+          };
+          var pw = $('#userPassword').val();
+          if (pw) payload.password = pw;
+          $.post('php/user_api.php?action=' + action, payload, function(response) {
             $('#userModal').modal('hide');
             if(action === 'add') {
               showCrudAlert('User added successfully.', 'success');

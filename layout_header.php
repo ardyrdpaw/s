@@ -1,12 +1,17 @@
 <?php
 // layout_header.php: Header and sidebar for Support Apps BKPSDM
-session_start();
-if (!isset($_SESSION['user_id'])) {
-  header('Location: login.php');
-  exit;
-}
+// use centralized auth helper
+include_once __DIR__ . '/php/auth.php';
+require_login();
 // determine current script for active menu
 $current_page = basename($_SERVER['PHP_SELF']);
+// ensure DB connection is available for menu rendering and access checks
+include_once __DIR__ . '/php/db_connect.php';
+// enforce per-menu access (for pages that include this header)
+$menu_key = pathinfo($current_page, PATHINFO_FILENAME);
+if (!in_array($menu_key, ['login','saview'])) {
+  require_menu_access($menu_key);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,10 +19,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Support Apps BKPSDM</title>
-    <link rel="icon" href="/favicon.ico">
-    <link rel="icon" href="assets/images/logo.png" type="image/png">
-    <link rel="shortcut icon" href="assets/images/logo.png" type="image/png">
-    <link rel="apple-touch-icon" href="assets/images/logo.png">
+    <link rel="icon" href="/sapps/favicon.ico" sizes="32x32">
+    <link rel="shortcut icon" href="/sapps/assets/images/logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="/sapps/assets/images/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">

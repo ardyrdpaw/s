@@ -1,5 +1,7 @@
 <?php
 // layout.php: Main layout for Support Apps BKPSDM
+include_once __DIR__ . '/php/auth.php';
+require_login();
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -1,5 +1,5 @@
 <?php
-session_start();
+session_start(); include_once __DIR__ . '/auth.php'; require_login(); require_menu_access('inf_ti');
 header('Content-Type: application/json');
 include_once __DIR__ . '/db_connect.php';
 

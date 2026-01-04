@@ -1,9 +1,10 @@
 <?php
+session_start(); include_once __DIR__ . '/auth.php'; require_login(); require_menu_access('signage');
 include 'db_connect.php';
 $action = $_GET['action'] ?? '';
 header('Content-Type: application/json');
 
-// Ensure new columns exist (autoplay, loop) to avoid query errors
+// Ensure new columns exist (autoplay, loop, muted, category) to avoid query errors
 $colAuto = $conn->query("SHOW COLUMNS FROM signage_items LIKE 'autoplay'");
 if ($colAuto && $colAuto->num_rows === 0) {
     $conn->query("ALTER TABLE signage_items ADD COLUMN autoplay TINYINT(1) DEFAULT 0 AFTER type");
@@ -16,18 +17,22 @@ $colMuted = $conn->query("SHOW COLUMNS FROM signage_items LIKE 'muted'");
 if ($colMuted && $colMuted->num_rows === 0) {
     $conn->query("ALTER TABLE signage_items ADD COLUMN muted TINYINT(1) DEFAULT 1 AFTER `loop`");
 }
+$colCategory = $conn->query("SHOW COLUMNS FROM signage_items LIKE 'category'");
+if ($colCategory && $colCategory->num_rows === 0) {
+    $conn->query("ALTER TABLE signage_items ADD COLUMN category VARCHAR(64) DEFAULT '' AFTER type");
+}
 
 switch ($action) {
     case 'list':
         $items = [];
-        $result = $conn->query('SELECT id, name, content, type, autoplay, `loop`, muted FROM signage_items');
+        $result = $conn->query('SELECT id, name, content, type, category, autoplay, `loop`, muted FROM signage_items');
         if ($result && $result->num_rows === 0) {
-            $conn->query("INSERT INTO signage_items (name, content, type, autoplay, `loop`, muted) VALUES
-                ('Welcome 1', 'Welcome to BKPSDM', 'Text', 0, 0, 0),
-                ('Welcome 2', 'Thank You for Visiting', 'Text', 0, 0, 0),
-                ('Video 1', 'assets/uploads/video1.mp4', 'Video', 1, 1, 1),
-                ('Galeri 1', 'assets/uploads/gallery1.jpg', 'Images', 0, 0, 0)");
-            $result = $conn->query('SELECT id, name, content, type, autoplay, `loop`, muted FROM signage_items');
+            $conn->query("INSERT INTO signage_items (name, content, type, category, autoplay, `loop`, muted) VALUES
+                ('Welcome 1', 'Welcome to BKPSDM', 'Text', 'Text', 0, 0, 0),
+                ('Welcome 2', 'Thank You for Visiting', 'Text', 'Text', 0, 0, 0),
+                ('Video 1', 'assets/uploads/video1.mp4', 'Video', 'Video', 1, 1, 1),
+                ('Galeri 1', 'assets/uploads/gallery1.jpg', 'Images', 'Galeri', 0, 0, 0)");
+            $result = $conn->query('SELECT id, name, content, type, category, autoplay, `loop`, muted FROM signage_items');
         }
         if ($result) {
             while ($row = $result->fetch_assoc()) {
@@ -38,7 +43,7 @@ switch ($action) {
         break;
     case 'get':
         $id = intval($_GET['id'] ?? 0);
-        $result = $conn->query("SELECT id, name, content, type, autoplay, `loop`, muted FROM signage_items WHERE id=$id");
+        $result = $conn->query("SELECT id, name, content, type, category, autoplay, `loop`, muted FROM signage_items WHERE id=$id");
         $item = $result ? $result->fetch_assoc() : null;
         echo json_encode(['data' => $item]);
         break;
@@ -46,6 +51,7 @@ switch ($action) {
         $name = $conn->real_escape_string($_POST['name']);
         $content = $conn->real_escape_string($_POST['content']);
         $type = $conn->real_escape_string($_POST['type']);
+        $category = $conn->real_escape_string($_POST['category'] ?? '');
         $autoplay = isset($_POST['autoplay']) ? 1 : 0;
         $loop = isset($_POST['loop']) ? 1 : 0;
         $muted = isset($_POST['muted']) ? 1 : 0;
@@ -64,7 +70,14 @@ switch ($action) {
             }
         }
         
-        $conn->query("INSERT INTO signage_items (name, content, type, autoplay, `loop`, muted) VALUES ('$name', '$content', '$type', $autoplay, $loop, $muted)");
+        // fallback: if category empty, derive from type for backward compatibility
+        if (empty($category)) {
+            if (strtolower($type) === 'video') $category = 'Video';
+            elseif (strtolower($type) === 'images') $category = 'Galeri';
+            else $category = 'Text';
+        }
+        
+        $conn->query("INSERT INTO signage_items (name, content, type, category, autoplay, `loop`, muted) VALUES ('$name', '$content', '$type', '$category', $autoplay, $loop, $muted)");
         echo json_encode(['success' => true]);
         break;
     case 'edit':
@@ -72,6 +85,7 @@ switch ($action) {
         $name = $conn->real_escape_string($_POST['name']);
         $content = $conn->real_escape_string($_POST['content']);
         $type = $conn->real_escape_string($_POST['type']);
+        $category = $conn->real_escape_string($_POST['category'] ?? '');
         $autoplay = isset($_POST['autoplay']) ? 1 : 0;
         $loop = isset($_POST['loop']) ? 1 : 0;
         $muted = isset($_POST['muted']) ? 1 : 0;
@@ -90,7 +104,13 @@ switch ($action) {
             }
         }
         
-        $conn->query("UPDATE signage_items SET name='$name', content='$content', type='$type', autoplay=$autoplay, `loop`=$loop, muted=$muted WHERE id=$id");
+        if (empty($category)) {
+            if (strtolower($type) === 'video') $category = 'Video';
+            elseif (strtolower($type) === 'images') $category = 'Galeri';
+            else $category = 'Text';
+        }
+        
+        $conn->query("UPDATE signage_items SET name='$name', content='$content', type='$type', category='$category', autoplay=$autoplay, `loop`=$loop, muted=$muted WHERE id=$id");
         echo json_encode(['success' => true]);
         break;
     case 'delete':

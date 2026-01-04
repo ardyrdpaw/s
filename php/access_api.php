@@ -1,6 +1,6 @@
 <?php
 include 'db_connect.php';
-session_start();
+session_start(); include_once __DIR__ . '/auth.php'; require_login(); require_menu_access('user_access');
 $action = $_GET['action'] ?? '';
 header('Content-Type: application/json');
 

@@ -28,11 +28,11 @@ if (intval($r['c']) === 0) {
 $res = $conn->query("SELECT COUNT(*) as c FROM users WHERE id = " . intval($testUser));
 $r = $res->fetch_assoc();
 if (intval($r['c']) === 0) {
-    $stmt = $conn->prepare("INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO users (id, name, username, password) VALUES (?, ?, ?, ?)");
     // weak password placeholder; we won't use it to login
     $pw = password_hash('test', PASSWORD_DEFAULT);
-    $name = 'e2e_user'; $email = 'e2e_user@example';
-    $stmt->bind_param('isss', $testUser, $name, $email, $pw);
+    $name = 'e2e_user'; $username = 'e2e_user_999';
+    $stmt->bind_param('isss', $testUser, $name, $username, $pw);
     if (!$stmt->execute()) fail('Failed to create test user: ' . $conn->error);
     pass('Inserted test user');
 } else {

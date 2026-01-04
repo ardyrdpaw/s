@@ -5,12 +5,14 @@ USE support_apps_bkpsdm;
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL
+    username VARCHAR(64) NOT NULL,
+    role VARCHAR(32) DEFAULT 'user',
+    password VARCHAR(255) DEFAULT NULL
 );
-INSERT INTO users (name, email) VALUES
-('Alice', 'alice@example.com'),
-('Bob', 'bob@example.com'),
-('Charlie', 'charlie@example.com');
+INSERT INTO users (name, username) VALUES
+('Alice', 'alice'),
+('Bob', 'bob'),
+('Charlie', 'charlie');
 
 CREATE TABLE IF NOT EXISTS cat_items (
     id INT AUTO_INCREMENT PRIMARY KEY,

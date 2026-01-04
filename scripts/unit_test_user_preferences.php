@@ -14,9 +14,9 @@ pass("'preferences' column exists");
 
 // create test user
 $conn->query("DELETE FROM users WHERE id = " . intval($testUser));
-$stmt = $conn->prepare("INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, 'user')");
-$pw = password_hash('test', PASSWORD_DEFAULT); $name='ut_user'; $email='ut@example';
-$stmt->bind_param('isss', $testUser, $name, $email, $pw);
+$stmt = $conn->prepare("INSERT INTO users (id, name, username, password, role) VALUES (?, ?, ?, ?, 'user')");
+$pw = password_hash('test', PASSWORD_DEFAULT); $name='ut_user'; $username='ut_username_999';
+$stmt->bind_param('isss', $testUser, $name, $username, $pw);
 if (!$stmt->execute()) fail('Failed to insert test user: ' . $conn->error);
 pass('Inserted test user');
 

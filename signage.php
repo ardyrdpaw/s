@@ -35,11 +35,21 @@
                 <button class="btn btn-success" id="addSignageBtn">Add Item</button>
                 <a class="btn btn-outline-primary ms-2" id="previewSignageBtn" href="saview.php" target="_blank" rel="noopener noreferrer" title="Open signage viewer in a new tab"><i class="bi bi-eye"></i> Preview</a>
             </div>
+            <!-- Category Tabs -->
+            <ul class="nav nav-tabs mb-3" id="signageTabs" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" data-cat="Video" type="button">Video</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-cat="Galeri" type="button">Galeri</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-cat="Kegiatan" type="button">Kegiatan</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-cat="Agenda" type="button">Agenda</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-cat="Text" type="button">Text</button></li>
+            </ul>
+
             <table class="table table-bordered" id="signageMgmtTable">
                 <thead>
                     <tr>
                         <th>Name</th>
                         <th>Type</th>
+                        <th>Category</th>
                         <th>Content</th>
                         <th>Autoplay</th>
                         <th>Loop</th>
@@ -68,14 +78,26 @@
                                 <label for="signageName" class="form-label">Name</label>
                                 <input type="text" class="form-control" id="signageName" name="name" required>
                             </div>
-                            <div class="mb-3">
-                                <label for="signageType" class="form-label">Type</label>
-                                <select class="form-select" id="signageType" name="type" required>
-                                    <option value="Text">Text</option>
-                                    <option value="Video">Video</option>
-                                    <option value="Images">Images</option>
-                                    <option value="Table">Table</option>
-                                </select>
+                            <div class="mb-3 row">
+                                <div class="col-md-6">
+                                    <label for="signageType" class="form-label">Type</label>
+                                    <select class="form-select" id="signageType" name="type" required>
+                                        <option value="Text">Text</option>
+                                        <option value="Video">Video</option>
+                                        <option value="Images">Images</option>
+                                        <option value="Table">Table</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="signageCategory" class="form-label">Category</label>
+                                    <select class="form-select" id="signageCategory" name="category" required>
+                                        <option value="Video">Video</option>
+                                        <option value="Galeri">Galeri</option>
+                                        <option value="Kegiatan">Kegiatan</option>
+                                        <option value="Agenda">Agenda</option>
+                                        <option value="Text">Text</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="signageContent" class="form-label">Content (URL or text)</label>
@@ -161,30 +183,65 @@
             }
         }
 
+        var __allSignageItems = [];
+        var __activeSignageCategory = 'Video';
+        var SIGNAGE_CATEGORIES = ['Video','Galeri','Kegiatan','Agenda','Text'];
+
+        function deriveCategoryFromItem(item) {
+            if (item.category && item.category.trim() !== '') return item.category;
+            var t = (item.type || '').toLowerCase();
+            if (t === 'video') return 'Video';
+            if (t === 'images') return 'Galeri';
+            return 'Text';
+        }
+
+        function renderSignageTableForCategory(cat) {
+            var rows = '';
+            $.each(__allSignageItems, function(i, item) {
+                var category = deriveCategoryFromItem(item);
+                if (category !== cat) return;
+                var autoplay = Number(item.autoplay) === 1;
+                var loop = Number(item.loop) === 1;
+                var muted = Number(item.muted) === 1;
+                rows += '<tr>' +
+                    '<td>' + item.name + '</td>' +
+                    '<td>' + item.type + '</td>' +
+                    '<td>' + category + '</td>' +
+                    '<td>' + (item.content ? item.content : '') + '</td>' +
+                    '<td>' + (autoplay ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td>' +
+                    '<td>' + (loop ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td>' +
+                    '<td>' + (muted ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td>' +
+                    '<td>' +
+                    '<button class="btn btn-sm btn-warning editSignageBtn" data-id="' + item.id + '">Edit</button> ' +
+                    '<button class="btn btn-sm btn-danger deleteSignageBtn" data-id="' + item.id + '">Delete</button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            $('#signageMgmtTable tbody').html(rows);
+        }
+
+        function renderTabs() {
+            $('#signageTabs button').removeClass('active');
+            $('#signageTabs button[data-cat="' + __activeSignageCategory + '"]').addClass('active');
+        }
+
         function loadSignage() {
             $.getJSON('php/signage_api.php?action=list', function(response) {
-                var rows = '';
-                $.each(response.data, function(i, item) {
-                    var autoplay = Number(item.autoplay) === 1;
-                    var loop = Number(item.loop) === 1;
-                    var muted = Number(item.muted) === 1;
-                    rows += '<tr>' +
-                        '<td>' + item.name + '</td>' +
-                        '<td>' + item.type + '</td>' +
-                        '<td>' + (item.content ? item.content : '') + '</td>' +
-                        '<td>' + (autoplay ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td>' +
-                        '<td>' + (loop ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td>' +
-                        '<td>' + (muted ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td>' +
-                        '<td>' +
-                        '<button class="btn btn-sm btn-warning editSignageBtn" data-id="' + item.id + '">Edit</button> ' +
-                        '<button class="btn btn-sm btn-danger deleteSignageBtn" data-id="' + item.id + '">Delete</button>' +
-                        '</td>' +
-                        '</tr>';
-                });
-                $('#signageMgmtTable tbody').html(rows);
+                __allSignageItems = response.data || [];
+                renderTabs();
+                renderSignageTableForCategory(__activeSignageCategory);
             });
         }
         loadSignage();
+
+        // Tab click handler
+        $('#signageTabs').on('click', 'button', function() {
+            var cat = $(this).data('cat');
+            if (!cat) return;
+            __activeSignageCategory = cat;
+            renderTabs();
+            renderSignageTableForCategory(cat);
+        });
         // load clock format
         function loadClockFormat() {
             $.getJSON('php/signage_api.php?action=get_clock_format', function(resp) {
@@ -264,6 +321,7 @@
             $('#signageForm')[0].reset();
             $('#signageId').val('');
             $('#signageType').val('Text');
+            $('#signageCategory').val(__activeSignageCategory || 'Text');
             toggleEditorByType('Text');
             $('#signageModal').modal('show');
         });
@@ -278,6 +336,8 @@
                     $('#signageId').val(response.data.id);
                     $('#signageName').val(response.data.name);
                     $('#signageType').val(response.data.type);
+                    // populate category (fallback to derive)
+                    $('#signageCategory').val(response.data.category || deriveCategoryFromItem(response.data));
                     toggleEditorByType(response.data.type);
                     if (isWysiwygEnabled) {
                         $('#signageContent').summernote('code', response.data.content || '');

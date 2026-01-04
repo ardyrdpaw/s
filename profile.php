@@ -9,8 +9,8 @@
           <input type="text" id="profileName" name="name" class="form-control" required>
         </div>
         <div class="mb-3">
-          <label class="form-label">Email</label>
-          <input type="email" id="profileEmail" name="email" class="form-control" required>
+          <label class="form-label">Username</label>
+          <input type="text" id="profileUsername" name="username" class="form-control" required>
         </div>
         <div class="mb-3">
           <label class="form-label">Password (leave blank to keep current)</label>
@@ -27,13 +27,13 @@
         $.getJSON('php/user_api.php?action=get&id=' + userId, function(resp){
           if (resp.data){
             $('#profileName').val(resp.data.name || '');
-            $('#profileEmail').val(resp.data.email || '');
+            $('#profileUsername').val(resp.data.username || '');
           }
         });
       }
       $('#profileForm').submit(function(e){
         e.preventDefault();
-        const payload = { id: userId, name: $('#profileName').val(), email: $('#profileEmail').val() };
+        const payload = { id: userId, name: $('#profileName').val(), username: $('#profileUsername').val() };
         const pw = $('#profilePassword').val();
         if (pw) payload.password = pw;
         $.post('php/user_api.php?action=edit', payload, function(resp){

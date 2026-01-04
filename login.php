@@ -7,18 +7,23 @@ if (isset($_SESSION['user_id'])) {
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     include 'php/db_connect.php';
-    $name = $conn->real_escape_string($_POST['name']);
-    $password = $_POST['password'];
-    $result = $conn->query("SELECT * FROM users WHERE name='$name'");
+    $username = $conn->real_escape_string($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $result = $conn->query("SELECT * FROM users WHERE username='$username' LIMIT 1");
     if ($result && $user = $result->fetch_assoc()) {
-        if ($password === $user['password']) {
+        $stored = $user['password'] ?? '';
+        $ok = false;
+        if (!empty($stored) && password_verify($password, $stored)) $ok = true; // hashed
+        elseif ($password === $stored) $ok = true; // legacy plain-text
+        if ($ok) {
             $_SESSION['user_id'] = $user['id'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['name'] = $user['name'];
+            $_SESSION['role'] = $user['role'] ?? 'user';
+            $_SESSION['name'] = $user['name'] ?? '';
+            $_SESSION['username'] = $user['username'] ?? '';
             header('Location: dashboard.php');
             exit;
         } else {
-            $error = 'Invalid password.';
+            $error = 'Invalid username or password.';
         }
     } else {
         $error = 'User not found.';
@@ -45,8 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php endif; ?>
                     <form method="post">
                         <div class="mb-3">
-                            <label for="name" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="name" name="name" required>
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
                         </div>
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>

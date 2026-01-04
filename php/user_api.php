@@ -1,6 +1,6 @@
 <?php
 include 'db_connect.php';
-session_start();
+session_start(); include_once __DIR__ . '/auth.php'; require_login(); require_menu_access('user');
 $action = $_GET['action'] ?? '';
 header('Content-Type: application/json');
 
@@ -11,7 +11,7 @@ switch ($action) {
         // only admins can list all users
         if (!$isAdmin) { http_response_code(403); echo json_encode(['error' => 'Forbidden']); break; }
         $users = [];
-        $result = $conn->query('SELECT id, name, email, role FROM users');
+        $result = $conn->query('SELECT id, name, username, role, keterangan FROM users');
         if ($result) {
             while ($row = $result->fetch_assoc()) {
                 $users[] = $row;
@@ -25,7 +25,7 @@ switch ($action) {
         if (!$isAdmin && (!isset($_SESSION['user_id']) || intval($_SESSION['user_id']) !== $id)) {
             http_response_code(403); echo json_encode(['error' => 'Forbidden']); break;
         }
-        $result = $conn->query("SELECT id, name, email, role, preferences FROM users WHERE id=$id");
+        $result = $conn->query("SELECT id, name, username, role, keterangan, preferences FROM users WHERE id=$id");
         $user = $result ? $result->fetch_assoc() : null;
         // decode preferences JSON to object if present
         if ($user && isset($user['preferences']) && $user['preferences'] !== null) {
@@ -36,30 +36,39 @@ switch ($action) {
         break;
     case 'add':
         if (!$isAdmin) { http_response_code(403); echo json_encode(['error' => 'Forbidden']); break; }
-        $name = $conn->real_escape_string($_POST['name']);
-        $email = $conn->real_escape_string($_POST['email']);
+        $name = $conn->real_escape_string($_POST['name'] ?? '');
+        $username = $conn->real_escape_string($_POST['username'] ?? '');
+        $keterangan = $conn->real_escape_string($_POST['keterangan'] ?? '');
         $pw = $_POST['password'] ?? '';
         if (!$pw) { echo json_encode(['success' => false, 'msg' => 'Password required']); break; }
+        if (!trim($name) || !trim($username)) { echo json_encode(['success' => false, 'msg' => 'Name and username required']); break; }
+        // ensure username is unique
+        $chk = $conn->query("SELECT id FROM users WHERE username='" . $conn->real_escape_string($username) . "' LIMIT 1");
+        if ($chk && $chk->num_rows > 0) { echo json_encode(['success' => false, 'msg' => 'Username already in use']); break; }
         $passwordHash = password_hash($pw, PASSWORD_DEFAULT);
         $password = $conn->real_escape_string($passwordHash);
         $role = $conn->real_escape_string($_POST['role'] ?? 'user');
-        $conn->query("INSERT INTO users (name, email, password, role) VALUES ('$name', '$email', '$password', '$role')");
+        $conn->query("INSERT INTO users (name, username, password, role, keterangan) VALUES ('$name', '$username', '$password', '$role', '$keterangan')");
         echo json_encode(['success' => true]);
         break;
     case 'edit':
         $id = intval($_POST['id'] ?? 0);
-        // only admin or the user themselves can edit (users can edit their own name/email/password but not role)
+        // only admin or the user themselves can edit (users can edit their own name/username/password but not role)
         if ($id <= 0) { echo json_encode(['success' => false, 'msg' => 'Invalid user id']); break; }
         if (!$isAdmin && (!isset($_SESSION['user_id']) || intval($_SESSION['user_id']) !== $id)) { http_response_code(403); echo json_encode(['success' => false, 'msg' => 'Forbidden']); break; }
-        // server-side validation for name/email
+        // server-side validation for name/username
         $nameRaw = $_POST['name'] ?? '';
-        $emailRaw = $_POST['email'] ?? '';
-        if (!trim($nameRaw) || !filter_var($emailRaw, FILTER_VALIDATE_EMAIL)) {
-            echo json_encode(['success' => false, 'msg' => 'Invalid name or email']); break;
+        $usernameRaw = $_POST['username'] ?? '';
+        if (!trim($nameRaw) || !trim($usernameRaw)) {
+            echo json_encode(['success' => false, 'msg' => 'Invalid name or username']); break;
         }
         $name = $conn->real_escape_string($nameRaw);
-        $email = $conn->real_escape_string($emailRaw);
-        $set = "name='$name', email='$email'";
+        $username = $conn->real_escape_string($usernameRaw);
+        $keterangan = $conn->real_escape_string($_POST['keterangan'] ?? '');
+        // ensure username is unique for other users
+        $chk = $conn->query("SELECT id FROM users WHERE username='" . $conn->real_escape_string($username) . "' AND id<>" . intval($id) . " LIMIT 1");
+        if ($chk && $chk->num_rows > 0) { echo json_encode(['success' => false, 'msg' => 'Username already in use']); break; }
+        $set = "name='$name', username='$username', keterangan='$keterangan'";
         if ($isAdmin) {
             $role = $conn->real_escape_string($_POST['role'] ?? 'user');
             $set .= ", role='$role'";
