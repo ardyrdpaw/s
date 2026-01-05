@@ -13,36 +13,112 @@
 </head>
 <body style="margin: 0; padding: 0;">
 <style>
-.signage-banner { background: #d48422; color: #111; min-height: 80px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.signage-header { background: #1a5490; color: #fff; min-height: 90px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: relative; }
+.signage-header-logo { display: flex; align-items: center; }
+.signage-header-center { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.signage-header-clock { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.75rem; color: #fff; }
+.signage-header-clock svg { width: 24px; height: 24px; fill: #fff; }
+.signage-logo { max-height: 75px; max-width: 160px; object-fit: contain; }
+.signage-banner { background: #d48422; color: #111; min-height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
 .signage-footer { background: #2ca3a3; color: #111; min-height: 40px; display: flex; align-items: center; justify-content: center; }
 .signage-main { background: #4a90e2; min-height: 400px; display: flex; align-items: center; justify-content: center; color: #111; font-size: 2rem; }
 .signage-side { background: #17989e; min-height: 400px; }
 .signage-table { background: #17989e; margin-bottom: 20px; }
+.activity-table { background: #fff; border-radius: 4px; font-size: 0.85rem; }
+.activity-table thead { background: #0d6efd; color: #fff; }
+.activity-table thead th { padding: 6px 4px; border: none; font-weight: 600; }
+.activity-table tbody td { padding: 6px 4px; border-color: #dee2e6; }
+.activity-table .badge { font-size: 0.7rem; padding: 3px 6px; }
 .signage-gallery { background: #17989e; }
-.signage-gallery-img { background: #4a90e2; min-height: 120px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #fff; overflow: hidden; }
-.signage-gallery-img img { width: 100%; height: 100%; object-fit: cover; }
+.signage-gallery-img { background: transparent; min-height: 170px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #fff; overflow: hidden; position: relative; }
+.signage-gallery-img img { width: 100%; height: 100%; object-fit: contain; }
+.signage-slideshow { position: relative; }
+.slideshow-image { transition: opacity 1s ease-in-out; }
+.slideshow-image.fade { transition: opacity 1s ease-in-out; }
+.slideshow-image.slide { transition: transform 0.5s ease-in-out; }
+.slideshow-image.none { transition: none; }
 .signage-video { width: 100%; height: 100%; }
 .signage-noimg { color: #aaa; font-size: 0.9rem; }
-.signage-logo { max-height: 60px; max-width: 160px; object-fit: contain; margin-right: 12px; }
-.signage-video-wrap { position: relative; width: 100%; height: 100%; } .signage-footer { position: relative; } .saview-clock { position: absolute; right: 16px; bottom: 8px; color: #fff; font-weight: 700; font-size: 1rem; z-index: 5; text-shadow: 0 1px 2px rgba(0,0,0,0.4); display:flex; align-items:center; gap:8px; }
-.saview-clock svg { width: 18px; height: 18px; fill: #fff; }
-.saview-clock .visually-hidden { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }</style>
+.signage-video-wrap { position: relative; width: 100%; height: 100%; }
+.visually-hidden { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }</style>
 <?php
 $signage = [];
+$videoPlaylist = [];
+$galleryImages = []; // Group images by name
+$slideshowSettings = ['timeout' => 5000, 'transition' => 'fade'];
+$kegiatanActivities = [];
+$agendaActivities = [];
+
 $conn = new mysqli('127.0.0.1', 'root', '', 'sapps');
-$result = $conn->query("SELECT * FROM signage_items");
+
+// Get activities for current month and year
+$currentYear = date('Y');
+$currentMonth = date('F'); // Full month name in English
+$indonesianMonths = [
+  'January' => 'Januari', 'February' => 'Februari', 'March' => 'Maret',
+  'April' => 'April', 'May' => 'Mei', 'June' => 'Juni',
+  'July' => 'Juli', 'August' => 'Agustus', 'September' => 'September',
+  'October' => 'Oktober', 'November' => 'November', 'December' => 'Desember'
+];
+$currentMonthIndo = $indonesianMonths[$currentMonth];
+
+$kegiatanResult = $conn->query("SELECT * FROM activities WHERE category='Kegiatan' AND tahun=$currentYear AND bulan='$currentMonthIndo' ORDER BY no ASC, id ASC LIMIT 10");
+if ($kegiatanResult) {
+  while ($row = $kegiatanResult->fetch_assoc()) {
+    $kegiatanActivities[] = $row;
+  }
+}
+
+$agendaResult = $conn->query("SELECT * FROM activities WHERE category='Agenda' AND tahun=$currentYear AND bulan='$currentMonthIndo' ORDER BY no ASC, id ASC LIMIT 10");
+if ($agendaResult) {
+  while ($row = $agendaResult->fetch_assoc()) {
+    $agendaActivities[] = $row;
+  }
+}
+
+$result = $conn->query("SELECT * FROM signage_items ORDER BY sort_order ASC, id ASC");
 if ($result) {
   while ($row = $result->fetch_assoc()) {
     $autoplay = isset($row['autoplay']) ? (int)$row['autoplay'] : 0;
     $loop = isset($row['loop']) ? (int)$row['loop'] : 0;
     $muted = isset($row['muted']) ? (int)$row['muted'] : 1;
-    $signage[$row['name']] = [
+    $category = isset($row['category']) ? $row['category'] : '';
+    $name = $row['name'];
+    
+    $signage[$name] = [
       'type' => $row['type'],
       'content' => $row['content'],
       'autoplay' => $autoplay,
       'loop' => $loop,
       'muted' => $muted
     ];
+    // Build video playlist for Video category
+    if ($row['type'] === 'Video' && $category === 'Video' && !empty($row['content'])) {
+      $videoPlaylist[] = [
+        'name' => $name,
+        'content' => $row['content'],
+        'autoplay' => $autoplay,
+        'loop' => $loop,
+        'muted' => $muted
+      ];
+    }
+    // Build gallery images grouped by name (for Galeri category)
+    if ($row['type'] === 'Images' && $category === 'Galeri' && !empty($row['content'])) {
+      if (!isset($galleryImages[$name])) {
+        $galleryImages[$name] = [];
+      }
+      $galleryImages[$name][] = [
+        'name' => $name,
+        'content' => $row['content']
+      ];
+    }
+    // Load slideshow settings
+    if ($name === 'SlideshowSettings') {
+      $decoded = json_decode($row['content'], true);
+      if (is_array($decoded)) {
+        $slideshowSettings = $decoded;
+      }
+    }
   }
 }
 
@@ -128,62 +204,116 @@ if (class_exists('IntlDateFormatter')) {
 }
 ?>
 <div class="container-fluid p-0">
+  <!-- Header with Logo, Welcome 1, and Clock -->
   <div class="row g-0">
-    <div class="col-12 signage-banner">
-      <?php if (isset($signage['Logo']) && $signage['Logo']['type'] === 'Images' && !empty($signage['Logo']['content'])): ?>
-        <img class="signage-logo" src="<?= htmlspecialchars($signage['Logo']['content']) ?>" alt="Logo">
-      <?php else: ?>
-        <span class="signage-noimg me-3">Logo</span>
-      <?php endif; ?>
-      <b><?= isset($signage['Welcome 1']) ? $signage['Welcome 1']['content'] : 'Welcome 1' ?></b>
+    <div class="col-12 signage-header">
+      <div class="signage-header-logo">
+        <?php if (isset($signage['Logo']) && $signage['Logo']['type'] === 'Images' && !empty($signage['Logo']['content'])): ?>
+          <img class="signage-logo" src="<?= htmlspecialchars($signage['Logo']['content']) ?>" alt="Logo">
+        <?php else: ?>
+          <span class="signage-noimg">Logo</span>
+        <?php endif; ?>
+      </div>
+      <div class="signage-header-center">
+        <b><?= isset($signage['Welcome 1']) ? $signage['Welcome 1']['content'] : 'Welcome 1' ?></b>
+      </div>
+      <div class="signage-header-clock">
+        <span class="signage-clock-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" focusable="false" aria-hidden="true"><path d="M12 1a11 11 0 1 0 .001 22.001A11 11 0 0 0 12 1zm0 2a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm.5 4h-1v6l5 3 .5-.86-4.5-2.64V7z"/></svg>
+        </span>
+        <span id="saviewClock"><?= htmlspecialchars($nowStr) ?></span>
+      </div>
     </div>
   </div>
   <div class="row g-0">
     <div class="col-md-8 signage-main">
-      <?php if (isset($signage['Video 1']) && $signage['Video 1']['type'] === 'Video'): ?>
+      <?php if (count($videoPlaylist) > 0): ?>
         <div class="signage-video-wrap">
-          <video id="signageVideo" class="signage-video" controls <?= ($signage['Video 1']['autoplay'] ?? 0) === 1 ? 'autoplay' : '' ?> <?= ($signage['Video 1']['loop'] ?? 0) === 1 ? 'loop' : '' ?> <?= ($signage['Video 1']['muted'] ?? 1) === 1 ? 'muted' : '' ?> playsinline>
-            <source src="<?= htmlspecialchars($signage['Video 1']['content']) ?>" type="video/mp4">
+          <video id="signageVideo" class="signage-video" controls <?= ($videoPlaylist[0]['autoplay'] ?? 0) === 1 ? 'autoplay' : '' ?> <?= ($videoPlaylist[0]['muted'] ?? 1) === 1 ? 'muted' : '' ?> playsinline>
+            <source id="videoSource" src="<?= htmlspecialchars($videoPlaylist[0]['content']) ?>" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      <?php elseif (isset($signage['Video 1']) && $signage['Video 1']['type'] === 'Video'): ?>
+        <div class="signage-video-wrap">
+          <video id="signageVideo" class="signage-video" controls <?= ($signage['Video 1']['autoplay'] ?? 0) === 1 ? 'autoplay' : '' ?> <?= ($signage['Video 1']['muted'] ?? 1) === 1 ? 'muted' : '' ?> playsinline>
+            <source id="videoSource" src="<?= htmlspecialchars($signage['Video 1']['content']) ?>" type="video/mp4">
             Your browser does not support the video tag.
           </video>
         </div>
       <?php else: ?>
-        Video 1
+        <div style="padding: 20px; text-align: center;">No videos in playlist</div>
       <?php endif; ?>
     </div>
     <div class="col-md-4 signage-side p-3">
       <div class="signage-table mb-3">
-        <div class="fw-bold text-center"><?= isset($signage['Tabel Kegiatan']) ? $signage['Tabel Kegiatan']['content'] : 'Tabel Kegiatan' ?></div>
-        <table class="table table-bordered table-sm mb-2">
-          <thead><tr><th>No</th><th>Kegiatan</th><th>Tempat</th><th>Waktu</th><th>Status</th></tr></thead>
-          <tbody><tr><td>1</td><td>a</td><td>b</td><td>c</td><td>d</td></tr></tbody>
+        <div class="fw-bold text-center mb-2">Kegiatan</div>
+        <table class="table table-sm mb-2 activity-table">
+          <thead><tr><th style="width:30px;">No</th><th>Kegiatan</th><th>Tempat</th><th>Waktu</th><th>Status</th></tr></thead>
+          <tbody>
+            <?php if (count($kegiatanActivities) > 0): ?>
+              <?php foreach ($kegiatanActivities as $activity): ?>
+                <tr>
+                  <td><?= htmlspecialchars($activity['no']) ?></td>
+                  <td><?= htmlspecialchars($activity['kegiatan']) ?></td>
+                  <td><?= htmlspecialchars($activity['tempat']) ?></td>
+                  <td><?= htmlspecialchars($activity['waktu']) ?></td>
+                  <td><span class="badge bg-<?= $activity['status'] === 'Selesai' ? 'success' : ($activity['status'] === 'Berlangsung' ? 'warning' : 'info') ?>"><?= htmlspecialchars($activity['status']) ?></span></td>
+                </tr>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <tr><td colspan="5" class="text-center text-muted">Tidak ada kegiatan</td></tr>
+            <?php endif; ?>
+          </tbody>
         </table>
       </div>
       <div class="signage-table mb-3">
-        <div class="fw-bold text-center"><?= isset($signage['Tabel Agenda']) ? $signage['Tabel Agenda']['content'] : 'Tabel Agenda' ?></div>
-        <table class="table table-bordered table-sm mb-2">
-          <thead><tr><th>No</th><th>Kegiatan</th><th>Tempat</th><th>Waktu</th><th>Status</th></tr></thead>
-          <tbody><tr><td>1</td><td>a</td><td>b</td><td>c</td><td>d</td></tr></tbody>
+        <div class="fw-bold text-center mb-2">Agenda</div>
+        <table class="table table-sm mb-2 activity-table">
+          <thead><tr><th style="width:30px;">No</th><th>Kegiatan</th><th>Tempat</th><th>Waktu</th><th>Status</th></tr></thead>
+          <tbody>
+            <?php if (count($agendaActivities) > 0): ?>
+              <?php foreach ($agendaActivities as $activity): ?>
+                <tr>
+                  <td><?= htmlspecialchars($activity['no']) ?></td>
+                  <td><?= htmlspecialchars($activity['kegiatan']) ?></td>
+                  <td><?= htmlspecialchars($activity['tempat']) ?></td>
+                  <td><?= htmlspecialchars($activity['waktu']) ?></td>
+                  <td><span class="badge bg-<?= $activity['status'] === 'Selesai' ? 'success' : ($activity['status'] === 'Berlangsung' ? 'warning' : 'info') ?>"><?= htmlspecialchars($activity['status']) ?></span></td>
+                </tr>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <tr><td colspan="5" class="text-center text-muted">Tidak ada agenda</td></tr>
+            <?php endif; ?>
+          </tbody>
         </table>
       </div>
       <div class="row signage-gallery">
         <div class="col-6">
-          <div class="fw-bold text-center mb-2"><?= isset($signage['Galeri 1']) && !empty($signage['Galeri 1']['content']) ? 'Galeri 1' : 'Galeri 1' ?></div>
-          <div class="signage-gallery-img">
-            <?php if (isset($signage['Galeri 1']) && $signage['Galeri 1']['type'] === 'Images' && !empty($signage['Galeri 1']['content'])): ?>
-              <img src="<?= htmlspecialchars($signage['Galeri 1']['content']) ?>" alt="Galeri 1" style="width:100%; height:100%; object-fit:cover;">
+          <div class="fw-bold text-center mb-2">Galeri 1</div>
+          <div class="signage-gallery-img signage-slideshow" id="slideshow1">
+            <?php 
+            $gallery1Images = isset($galleryImages['Galeri 1']) ? $galleryImages['Galeri 1'] : [];
+            if (count($gallery1Images) > 0): ?>
+              <?php foreach ($gallery1Images as $index => $img): ?>
+                <img src="<?= htmlspecialchars($img['content']) ?>" alt="<?= htmlspecialchars($img['name']) ?>" class="slideshow-image <?= $index === 0 ? 'active' : '' ?>" style="width:100%; height:100%; object-fit:contain; position:absolute; top:0; left:0; opacity: <?= $index === 0 ? '1' : '0' ?>;">
+              <?php endforeach; ?>
             <?php else: ?>
-              <span style="color:#ccc; font-size:0.9rem;">No Image</span>
+              <span style="color:#ccc; font-size:0.9rem;">No Images</span>
             <?php endif; ?>
           </div>
         </div>
         <div class="col-6">
-          <div class="fw-bold text-center mb-2"><?= isset($signage['Galeri 2']) && !empty($signage['Galeri 2']['content']) ? 'Galeri 2' : 'Galeri 2' ?></div>
-          <div class="signage-gallery-img">
-            <?php if (isset($signage['Galeri 2']) && $signage['Galeri 2']['type'] === 'Images' && !empty($signage['Galeri 2']['content'])): ?>
-              <img src="<?= htmlspecialchars($signage['Galeri 2']['content']) ?>" alt="Galeri 2" style="width:100%; height:100%; object-fit:cover;">
+          <div class="fw-bold text-center mb-2">Galeri 2</div>
+          <div class="signage-gallery-img signage-slideshow" id="slideshow2">
+            <?php 
+            $gallery2Images = isset($galleryImages['Galeri 2']) ? $galleryImages['Galeri 2'] : [];
+            if (count($gallery2Images) > 0): ?>
+              <?php foreach ($gallery2Images as $index => $img): ?>
+                <img src="<?= htmlspecialchars($img['content']) ?>" alt="<?= htmlspecialchars($img['name']) ?>" class="slideshow-image <?= $index === 0 ? 'active' : '' ?>" style="width:100%; height:100%; object-fit:contain; position:absolute; top:0; left:0; opacity: <?= $index === 0 ? '1' : '0' ?>;">
+              <?php endforeach; ?>
             <?php else: ?>
-              <span style="color:#ccc; font-size:0.9rem;">No Image</span>
+              <span style="color:#ccc; font-size:0.9rem;">No Images</span>
             <?php endif; ?>
           </div>
         </div>
@@ -198,16 +328,90 @@ if (class_exists('IntlDateFormatter')) {
   <div class="row g-0">
     <div class="col-12 signage-footer">
       <div><?= isset($signage['Footer']) ? $signage['Footer']['content'] : 'Footer' ?></div>
-      <div class="saview-clock" aria-hidden="false">
-        <span class="saview-clock-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" focusable="false" aria-hidden="true"><path d="M12 1a11 11 0 1 0 .001 22.001A11 11 0 0 0 12 1zm0 2a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm.5 4h-1v6l5 3 .5-.86-4.5-2.64V7z"/></svg>
-        </span>
-        <span id="saviewClock"><?= htmlspecialchars($nowStr) ?></span>
-      </div>
     </div>
   </div>
 </div>
 <script>
+// Gallery Slideshow functionality
+(function(){
+  var slideshowSettings = <?= json_encode($slideshowSettings) ?>;
+  var timeout = slideshowSettings.timeout || 5000;
+  var transition = slideshowSettings.transition || 'fade';
+  
+  function initSlideshow(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    
+    var images = container.querySelectorAll('.slideshow-image');
+    if (images.length <= 1) return; // No need for slideshow with 0 or 1 image
+    
+    var currentIndex = 0;
+    
+    function showNextImage() {
+      var currentImage = images[currentIndex];
+      currentIndex = (currentIndex + 1) % images.length;
+      var nextImage = images[currentIndex];
+      
+      // Apply transition
+      if (transition === 'fade') {
+        currentImage.style.opacity = '0';
+        nextImage.style.opacity = '1';
+      } else if (transition === 'slide') {
+        currentImage.style.transform = 'translateX(-100%)';
+        currentImage.style.opacity = '0';
+        nextImage.style.transform = 'translateX(0)';
+        nextImage.style.opacity = '1';
+        // Reset transform for next cycle
+        setTimeout(function() {
+          currentImage.style.transform = 'translateX(0)';
+        }, 500);
+      } else {
+        currentImage.style.opacity = '0';
+        nextImage.style.opacity = '1';
+      }
+    }
+    
+    setInterval(showNextImage, timeout);
+  }
+  
+  // Initialize both slideshows with a slight offset
+  initSlideshow('slideshow1');
+  setTimeout(function() {
+    initSlideshow('slideshow2');
+  }, timeout / 2); // Start second slideshow at half the interval for variety
+})();
+
+// Video Playlist functionality
+(function(){
+  var videoPlaylist = <?= json_encode($videoPlaylist) ?>;
+  var currentVideoIndex = 0;
+  var videoElement = document.getElementById('signageVideo');
+  var videoSource = document.getElementById('videoSource');
+  
+  if (videoElement && videoPlaylist && videoPlaylist.length > 0) {
+    // Play next video when current ends
+    videoElement.addEventListener('ended', function() {
+      currentVideoIndex++;
+      if (currentVideoIndex >= videoPlaylist.length) {
+        currentVideoIndex = 0; // Loop back to first video
+      }
+      playVideoAtIndex(currentVideoIndex);
+    });
+    
+    function playVideoAtIndex(index) {
+      if (index >= 0 && index < videoPlaylist.length) {
+        var video = videoPlaylist[index];
+        videoElement.muted = video.muted === 1;
+        videoElement.src = video.content;
+        videoElement.play().catch(function(e) {
+          console.log('Autoplay prevented:', e);
+        });
+      }
+    }
+  }
+})();
+
+// Clock functionality
 (function(){
   function pad(n){return n<10?('0'+n):n;}
   // format according to selected clock format from admin (long/short/time/date/iso/weekday_short)

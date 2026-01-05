@@ -5,6 +5,39 @@
 <div class="container-fluid mt-4">
     <h1 class="h3 mb-4">Signage</h1>
     <div id="crudAlert" style="display:none;"></div>
+    
+    <!-- Activities Management Section -->
+    <div class="card mt-4">
+        <div class="card-header">Activities Management (Kegiatan & Agenda)</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <button class="btn btn-success" id="addActivityBtn">Add Activity</button>
+            </div>
+            <ul class="nav nav-tabs mb-3" id="activityTabs" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" data-actcat="Kegiatan" type="button">Kegiatan</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-actcat="Agenda" type="button">Agenda</button></li>
+            </ul>
+            <table class="table table-bordered" id="activitiesTable">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Kegiatan</th>
+                        <th>Tempat</th>
+                        <th>Waktu</th>
+                        <th>Tahun</th>
+                        <th>Bulan</th>
+                        <th>Status</th>
+                        <th>Category</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
     <div class="card mt-4">
         <div class="card-header">Signage Items</div>
         <div class="card-body">
@@ -31,6 +64,30 @@
                 </div>
             </div>
             </div>
+            <div id="slideshowControls" class="mt-4 mb-3">
+                <h6>Gallery Slideshow Settings</h6>
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <label class="col-form-label">Timeout (seconds)</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="number" id="slideshowTimeout" class="form-control" min="1" max="60" value="5" style="width: 100px;">
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">Transition</label>
+                    </div>
+                    <div class="col-auto">
+                        <select id="slideshowTransition" class="form-select">
+                            <option value="fade">Fade</option>
+                            <option value="slide">Slide</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button id="saveSlideshowSettings" class="btn btn-primary">Save</button>
+                    </div>
+                </div>
+            </div>
             <div class="mb-3">
                 <button class="btn btn-success" id="addSignageBtn">Add Item</button>
                 <a class="btn btn-outline-primary ms-2" id="previewSignageBtn" href="saview.php" target="_blank" rel="noopener noreferrer" title="Open signage viewer in a new tab"><i class="bi bi-eye"></i> Preview</a>
@@ -39,14 +96,13 @@
             <ul class="nav nav-tabs mb-3" id="signageTabs" role="tablist">
                 <li class="nav-item" role="presentation"><button class="nav-link active" data-cat="Video" type="button">Video</button></li>
                 <li class="nav-item" role="presentation"><button class="nav-link" data-cat="Galeri" type="button">Galeri</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" data-cat="Kegiatan" type="button">Kegiatan</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" data-cat="Agenda" type="button">Agenda</button></li>
                 <li class="nav-item" role="presentation"><button class="nav-link" data-cat="Text" type="button">Text</button></li>
             </ul>
 
             <table class="table table-bordered" id="signageMgmtTable">
                 <thead>
                     <tr>
+                        <th>Sort</th>
                         <th>Name</th>
                         <th>Type</th>
                         <th>Category</th>
@@ -63,6 +119,77 @@
             </table>
         </div>
     </div>
+    
+    <!-- Add/Edit Activity Modal -->
+    <div class="modal fade" id="activityModal" tabindex="-1" aria-labelledby="activityModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="activityModalLabel">Add/Edit Activity</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="activityForm">
+                        <input type="hidden" id="activityId" name="id">
+                        <div class="mb-3">
+                            <label for="activityNo" class="form-label">No</label>
+                            <input type="number" class="form-control" id="activityNo" name="no" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="activityKegiatan" class="form-label">Kegiatan</label>
+                            <input type="text" class="form-control" id="activityKegiatan" name="kegiatan" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="activityTempat" class="form-label">Tempat</label>
+                            <input type="text" class="form-control" id="activityTempat" name="tempat">
+                        </div>
+                        <div class="mb-3">
+                            <label for="activityWaktu" class="form-label">Waktu</label>
+                            <input type="text" class="form-control" id="activityWaktu" name="waktu" placeholder="e.g. 10:00-12:00">
+                        </div>
+                        <div class="mb-3">
+                            <label for="activityTahun" class="form-label">Tahun</label>
+                            <input type="number" class="form-control" id="activityTahun" name="tahun" min="2020" max="2100" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="activityBulan" class="form-label">Bulan</label>
+                            <select class="form-select" id="activityBulan" name="bulan" required>
+                                <option value="Januari">Januari</option>
+                                <option value="Februari">Februari</option>
+                                <option value="Maret">Maret</option>
+                                <option value="April">April</option>
+                                <option value="Mei">Mei</option>
+                                <option value="Juni">Juni</option>
+                                <option value="Juli">Juli</option>
+                                <option value="Agustus">Agustus</option>
+                                <option value="September">September</option>
+                                <option value="Oktober">Oktober</option>
+                                <option value="November">November</option>
+                                <option value="Desember">Desember</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="activityStatus" class="form-label">Status</label>
+                            <select class="form-select" id="activityStatus" name="status" required>
+                                <option value="Terjadwal">Terjadwal</option>
+                                <option value="Berlangsung">Berlangsung</option>
+                                <option value="Selesai">Selesai</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="activityCategory" class="form-label">Category</label>
+                            <select class="form-select" id="activityCategory" name="category" required>
+                                <option value="Kegiatan">Kegiatan</option>
+                                <option value="Agenda">Agenda</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
         <!-- Add/Edit Signage Modal -->
         <div class="modal fade" id="signageModal" tabindex="-1" aria-labelledby="signageModalLabel" aria-hidden="true">
             <div class="modal-dialog">
@@ -77,6 +204,11 @@
                             <div class="mb-3">
                                 <label for="signageName" class="form-label">Name</label>
                                 <input type="text" class="form-control" id="signageName" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="signageSortOrder" class="form-label">Sort Order (for playlist)</label>
+                                <input type="number" class="form-control" id="signageSortOrder" name="sort_order" min="0" value="0">
+                                <small class="text-muted">Lower numbers play first. Use for video playlist order.</small>
                             </div>
                             <div class="mb-3 row">
                                 <div class="col-md-6">
@@ -93,8 +225,6 @@
                                     <select class="form-select" id="signageCategory" name="category" required>
                                         <option value="Video">Video</option>
                                         <option value="Galeri">Galeri</option>
-                                        <option value="Kegiatan">Kegiatan</option>
-                                        <option value="Agenda">Agenda</option>
                                         <option value="Text">Text</option>
                                     </select>
                                 </div>
@@ -178,14 +308,18 @@
         function toggleEditorByType(type) {
             if (type === 'Text' || type === 'Table') {
                 enableWysiwyg();
+                $('#signageContent').closest('.mb-3').show();
+                $('#signageFile').closest('.mb-3').show();
             } else {
                 disableWysiwyg();
+                $('#signageContent').closest('.mb-3').show();
+                $('#signageFile').closest('.mb-3').show();
             }
         }
 
         var __allSignageItems = [];
         var __activeSignageCategory = 'Video';
-        var SIGNAGE_CATEGORIES = ['Video','Galeri','Kegiatan','Agenda','Text'];
+        var SIGNAGE_CATEGORIES = ['Video','Galeri','Text'];
 
         function deriveCategoryFromItem(item) {
             if (item.category && item.category.trim() !== '') return item.category;
@@ -203,7 +337,9 @@
                 var autoplay = Number(item.autoplay) === 1;
                 var loop = Number(item.loop) === 1;
                 var muted = Number(item.muted) === 1;
+                var sortOrder = item.sort_order || 0;
                 rows += '<tr>' +
+                    '<td>' + sortOrder + '</td>' +
                     '<td>' + item.name + '</td>' +
                     '<td>' + item.type + '</td>' +
                     '<td>' + category + '</td>' +
@@ -316,12 +452,38 @@
                 }, 'json');
             });
         });
+        
+        // Load slideshow settings
+        function loadSlideshowSettings() {
+            $.getJSON('php/signage_api.php?action=get_slideshow_settings', function(resp) {
+                if (resp && resp.success && resp.settings) {
+                    $('#slideshowTimeout').val(resp.settings.timeout / 1000);
+                    $('#slideshowTransition').val(resp.settings.transition);
+                }
+            });
+        }
+        loadSlideshowSettings();
+        
+        // Save slideshow settings
+        $('#saveSlideshowSettings').click(function(){
+            var timeout = parseInt($('#slideshowTimeout').val()) * 1000;
+            var transition = $('#slideshowTransition').val();
+            $.post('php/signage_api.php?action=set_slideshow_settings', {
+                timeout: timeout,
+                transition: transition
+            }, function(r){
+                showCrudAlert('Slideshow settings saved.', 'success');
+            }, 'json');
+        });
+        
         // Add Signage
         $('#addSignageBtn').click(function() {
             $('#signageForm')[0].reset();
             $('#signageId').val('');
             $('#signageType').val('Text');
             $('#signageCategory').val(__activeSignageCategory || 'Text');
+            $('#signageContent').val('');
+            $('#signageSortOrder').val('0');
             toggleEditorByType('Text');
             $('#signageModal').modal('show');
         });
@@ -338,12 +500,18 @@
                     $('#signageType').val(response.data.type);
                     // populate category (fallback to derive)
                     $('#signageCategory').val(response.data.category || deriveCategoryFromItem(response.data));
+                    $('#signageSortOrder').val(response.data.sort_order || 0);
+                    
+                    // Set content based on type
+                    var contentValue = response.data.content || '';
                     toggleEditorByType(response.data.type);
+                    
                     if (isWysiwygEnabled) {
-                        $('#signageContent').summernote('code', response.data.content || '');
+                        $('#signageContent').summernote('code', contentValue);
                     } else {
-                        $('#signageContent').val(response.data.content);
+                        $('#signageContent').val(contentValue);
                     }
+                    
                     $('#signageAutoplay').prop('checked', Number(response.data.autoplay) === 1);
                     $('#signageLoop').prop('checked', Number(response.data.loop) === 1);
                     $('#signageMuted').prop('checked', Number(response.data.muted) === 1);
@@ -364,11 +532,16 @@
         // Save Signage
         $('#signageForm').submit(function(e) {
             e.preventDefault();
+            
+            // Ensure Summernote content is synced to textarea
             if (isWysiwygEnabled) {
-                $('#signageContent').val($('#signageContent').summernote('code'));
+                var summernoteCode = $('#signageContent').summernote('code');
+                $('#signageContent').val(summernoteCode);
             }
+            
             var formData = new FormData(this);
             var action = $('#signageId').val() ? 'edit' : 'add';
+            
             $.ajax({
                 url: 'php/signage_api.php?action=' + action,
                 type: 'POST',
@@ -384,8 +557,14 @@
                         showCrudAlert('Signage item updated successfully.', 'success');
                     }
                     loadSignage();
+                },
+                error: function(xhr, status, error) {
+                    console.error('Save error:', status, error, xhr.responseText);
+                    showCrudAlert('Error saving signage item: ' + (xhr.responseText || error), 'danger');
                 }
             });
+            
+            return false;
         });
 
         // Show notification
@@ -397,6 +576,105 @@
             $('#crudAlert').html(alertHtml).show();
             setTimeout(function() { $('#crudAlert').fadeOut(); }, 3000);
         }
+        
+        // Activities Management
+        var __activeActivityCategory = 'Kegiatan';
+        
+        function loadActivities() {
+            $.getJSON('php/signage_api.php?action=list_activities&category=' + __activeActivityCategory, function(response) {
+                if (response.success) {
+                    renderActivitiesTable(response.activities);
+                }
+            });
+        }
+        
+        function renderActivitiesTable(activities) {
+            var rows = '';
+            $.each(activities, function(i, act) {
+                rows += '<tr>' +
+                    '<td>' + (act.no || '-') + '</td>' +
+                    '<td>' + act.kegiatan + '</td>' +
+                    '<td>' + (act.tempat || '-') + '</td>' +
+                    '<td>' + (act.waktu || '-') + '</td>' +
+                    '<td>' + (act.tahun || '-') + '</td>' +
+                    '<td>' + (act.bulan || '-') + '</td>' +
+                    '<td><span class="badge bg-' + (act.status === 'Selesai' ? 'success' : (act.status === 'Berlangsung' ? 'warning' : 'info')) + '">' + act.status + '</span></td>' +
+                    '<td>' + act.category + '</td>' +
+                    '<td>' +
+                    '<button class="btn btn-sm btn-warning editActivityBtn" data-id="' + act.id + '">Edit</button> ' +
+                    '<button class="btn btn-sm btn-danger deleteActivityBtn" data-id="' + act.id + '">Delete</button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            if (rows === '') {
+                rows = '<tr><td colspan="9" class="text-center text-muted">No activities found</td></tr>';
+            }
+            $('#activitiesTable tbody').html(rows);
+        }
+        
+        $('#activityTabs').on('click', 'button', function() {
+            var cat = $(this).data('actcat');
+            if (!cat) return;
+            __activeActivityCategory = cat;
+            $('#activityTabs button').removeClass('active');
+            $(this).addClass('active');
+            loadActivities();
+        });
+        
+        $('#addActivityBtn').click(function() {
+            $('#activityForm')[0].reset();
+            $('#activityId').val('');
+            $('#activityCategory').val(__activeActivityCategory);
+            $('#activityModal').modal('show');
+        });
+        
+        $(document).on('click', '.editActivityBtn', function() {
+            var id = $(this).data('id');
+            $.getJSON('php/signage_api.php?action=get_activity&id=' + id, function(response) {
+                if(response.success && response.data) {
+                    $('#activityId').val(response.data.id);
+                    $('#activityNo').val(response.data.no);
+                    $('#activityKegiatan').val(response.data.kegiatan);
+                    $('#activityTempat').val(response.data.tempat);
+                    $('#activityWaktu').val(response.data.waktu);
+                    $('#activityTahun').val(response.data.tahun);
+                    $('#activityBulan').val(response.data.bulan);
+                    $('#activityStatus').val(response.data.status);
+                    $('#activityCategory').val(response.data.category);
+                    $('#activityModal').modal('show');
+                }
+            });
+        });
+        
+        $(document).on('click', '.deleteActivityBtn', function() {
+            if(confirm('Are you sure you want to delete this activity?')) {
+                var id = $(this).data('id');
+                $.post('php/signage_api.php?action=delete_activity', {id: id}, function(response) {
+                    showCrudAlert('Activity deleted successfully.', 'success');
+                    loadActivities();
+                }, 'json');
+            }
+        });
+        
+        $('#activityForm').submit(function(e) {
+            e.preventDefault();
+            var formData = $(this).serialize();
+            var action = $('#activityId').val() ? 'edit_activity' : 'add_activity';
+            $.post('php/signage_api.php?action=' + action, formData, function(response) {
+                $('#activityModal').modal('hide');
+                if(action === 'add_activity') {
+                    showCrudAlert('Activity added successfully.', 'success');
+                } else {
+                    showCrudAlert('Activity updated successfully.', 'success');
+                }
+                loadActivities();
+            }, 'json').fail(function(xhr) {
+                showCrudAlert('Error saving activity: ' + xhr.responseText, 'danger');
+            });
+            return false;
+        });
+        
+        loadActivities();
     });
     </script>
     <!-- Signage Content ends here -->

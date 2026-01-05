@@ -141,7 +141,7 @@ if (!in_array($menu_key, ['login','saview'])) {
             <a class="nav-link text-white <?php echo $current_page === 'user_access.php' ? 'active' : '' ?>" href="user_access.php"><i class="bi bi-shield-lock"></i> <span class="menu-label ms-1">Akses</span></a>
           </li>
           <li class="nav-item">
-            <a class="nav-link text-white <?php echo $current_page === 'menus.php' ? 'active' : '' ?>" href="menus.php"><i class="bi bi-list"></i> <span class="menu-label ms-1">Manage Menus</span></a>
+            <a class="nav-link text-white <?php echo $current_page === 'menus.php' ? 'active' : '' ?>" href="menus.php"><i class="bi bi-list"></i> <span class="menu-label ms-1">Menus</span></a>
           </li>
           <?php endif; ?>
           <li class="nav-item mt-3">

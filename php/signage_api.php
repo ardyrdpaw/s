@@ -21,11 +21,51 @@ $colCategory = $conn->query("SHOW COLUMNS FROM signage_items LIKE 'category'");
 if ($colCategory && $colCategory->num_rows === 0) {
     $conn->query("ALTER TABLE signage_items ADD COLUMN category VARCHAR(64) DEFAULT '' AFTER type");
 }
+$colSortOrder = $conn->query("SHOW COLUMNS FROM signage_items LIKE 'sort_order'");
+if ($colSortOrder && $colSortOrder->num_rows === 0) {
+    $conn->query("ALTER TABLE signage_items ADD COLUMN sort_order INT DEFAULT 0 AFTER muted");
+}
+
+// Ensure activities table exists
+$tableExists = $conn->query("SHOW TABLES LIKE 'activities'");
+if ($tableExists && $tableExists->num_rows === 0) {
+    $conn->query("CREATE TABLE activities (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        no INT,
+        kegiatan VARCHAR(255) NOT NULL,
+        tempat VARCHAR(255),
+        waktu VARCHAR(255),
+        tahun INT,
+        bulan VARCHAR(50),
+        status VARCHAR(50),
+        category ENUM('Kegiatan', 'Agenda') DEFAULT 'Kegiatan',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+} else {
+    // Migrate existing table if needed
+    $hasNewCols = $conn->query("SHOW COLUMNS FROM activities LIKE 'kegiatan'");
+    if ($hasNewCols && $hasNewCols->num_rows === 0) {
+        $conn->query("ALTER TABLE activities 
+            ADD COLUMN no INT AFTER id,
+            ADD COLUMN kegiatan VARCHAR(255) AFTER no,
+            ADD COLUMN tempat VARCHAR(255) AFTER kegiatan,
+            ADD COLUMN waktu VARCHAR(255) AFTER tempat");
+    }
+    // Add tahun and bulan columns if they don't exist
+    $hasTahun = $conn->query("SHOW COLUMNS FROM activities LIKE 'tahun'");
+    if ($hasTahun && $hasTahun->num_rows === 0) {
+        $conn->query("ALTER TABLE activities ADD COLUMN tahun INT AFTER waktu");
+    }
+    $hasBulan = $conn->query("SHOW COLUMNS FROM activities LIKE 'bulan'");
+    if ($hasBulan && $hasBulan->num_rows === 0) {
+        $conn->query("ALTER TABLE activities ADD COLUMN bulan VARCHAR(50) AFTER tahun");
+    }
+}
 
 switch ($action) {
     case 'list':
         $items = [];
-        $result = $conn->query('SELECT id, name, content, type, category, autoplay, `loop`, muted FROM signage_items');
+        $result = $conn->query('SELECT id, name, content, type, category, autoplay, `loop`, muted, sort_order FROM signage_items ORDER BY sort_order ASC, id ASC');
         if ($result && $result->num_rows === 0) {
             $conn->query("INSERT INTO signage_items (name, content, type, category, autoplay, `loop`, muted) VALUES
                 ('Welcome 1', 'Welcome to BKPSDM', 'Text', 'Text', 0, 0, 0),
@@ -43,18 +83,19 @@ switch ($action) {
         break;
     case 'get':
         $id = intval($_GET['id'] ?? 0);
-        $result = $conn->query("SELECT id, name, content, type, category, autoplay, `loop`, muted FROM signage_items WHERE id=$id");
+        $result = $conn->query("SELECT id, name, content, type, category, autoplay, `loop`, muted, sort_order FROM signage_items WHERE id=$id");
         $item = $result ? $result->fetch_assoc() : null;
         echo json_encode(['data' => $item]);
         break;
     case 'add':
-        $name = $conn->real_escape_string($_POST['name']);
-        $content = $conn->real_escape_string($_POST['content']);
-        $type = $conn->real_escape_string($_POST['type']);
+        $name = $conn->real_escape_string($_POST['name'] ?? '');
+        $content = $conn->real_escape_string($_POST['content'] ?? '');
+        $type = $conn->real_escape_string($_POST['type'] ?? '');
         $category = $conn->real_escape_string($_POST['category'] ?? '');
         $autoplay = isset($_POST['autoplay']) ? 1 : 0;
         $loop = isset($_POST['loop']) ? 1 : 0;
         $muted = isset($_POST['muted']) ? 1 : 0;
+        $sort_order = intval($_POST['sort_order'] ?? 0);
         
         // Handle file upload
         if (!empty($_FILES['file']['name'])) {
@@ -77,18 +118,24 @@ switch ($action) {
             else $category = 'Text';
         }
         
-        $conn->query("INSERT INTO signage_items (name, content, type, category, autoplay, `loop`, muted) VALUES ('$name', '$content', '$type', '$category', $autoplay, $loop, $muted)");
-        echo json_encode(['success' => true]);
+        $result = $conn->query("INSERT INTO signage_items (name, content, type, category, autoplay, `loop`, muted, sort_order) VALUES ('$name', '$content', '$type', '$category', $autoplay, $loop, $muted, $sort_order)");
+        if ($result) {
+            echo json_encode(['success' => true]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $conn->error]);
+        }
         break;
     case 'edit':
-        $id = intval($_POST['id']);
-        $name = $conn->real_escape_string($_POST['name']);
-        $content = $conn->real_escape_string($_POST['content']);
-        $type = $conn->real_escape_string($_POST['type']);
+        $id = intval($_POST['id'] ?? 0);
+        $name = $conn->real_escape_string($_POST['name'] ?? '');
+        $content = $conn->real_escape_string($_POST['content'] ?? '');
+        $type = $conn->real_escape_string($_POST['type'] ?? '');
         $category = $conn->real_escape_string($_POST['category'] ?? '');
         $autoplay = isset($_POST['autoplay']) ? 1 : 0;
         $loop = isset($_POST['loop']) ? 1 : 0;
         $muted = isset($_POST['muted']) ? 1 : 0;
+        $sort_order = intval($_POST['sort_order'] ?? 0);
         
         // Handle file upload
         if (!empty($_FILES['file']['name'])) {
@@ -110,8 +157,13 @@ switch ($action) {
             else $category = 'Text';
         }
         
-        $conn->query("UPDATE signage_items SET name='$name', content='$content', type='$type', category='$category', autoplay=$autoplay, `loop`=$loop, muted=$muted WHERE id=$id");
-        echo json_encode(['success' => true]);
+        $result = $conn->query("UPDATE signage_items SET name='$name', content='$content', type='$type', category='$category', autoplay=$autoplay, `loop`=$loop, muted=$muted, sort_order=$sort_order WHERE id=$id");
+        if ($result) {
+            echo json_encode(['success' => true]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $conn->error]);
+        }
         break;
     case 'delete':
         $id = intval($_POST['id']);
@@ -244,6 +296,115 @@ switch ($action) {
             }
         }
         echo json_encode(['time' => $outStr]);
+        break;
+    case 'get_slideshow_settings':
+        // Get slideshow settings (stored as JSON in a special signage item)
+        $res = $conn->query("SELECT content FROM signage_items WHERE name='SlideshowSettings' LIMIT 1");
+        $defaultSettings = [
+            'timeout' => 5000,
+            'transition' => 'fade'
+        ];
+        if ($res && $row = $res->fetch_assoc()) {
+            $decoded = json_decode($row['content'], true);
+            if (is_array($decoded)) {
+                echo json_encode(['success' => true, 'settings' => $decoded]);
+            } else {
+                echo json_encode(['success' => true, 'settings' => $defaultSettings]);
+            }
+        } else {
+            // Insert defaults
+            $json = $conn->real_escape_string(json_encode($defaultSettings));
+            $conn->query("INSERT INTO signage_items (name, content, type) VALUES ('SlideshowSettings', '$json', 'Setting')");
+            echo json_encode(['success' => true, 'settings' => $defaultSettings]);
+        }
+        break;
+    case 'set_slideshow_settings':
+        $timeout = intval($_POST['timeout'] ?? 5000);
+        $transition = $conn->real_escape_string($_POST['transition'] ?? 'fade');
+        $settings = ['timeout' => $timeout, 'transition' => $transition];
+        $json = $conn->real_escape_string(json_encode($settings));
+        
+        $res = $conn->query("SELECT id FROM signage_items WHERE name='SlideshowSettings' LIMIT 1");
+        if ($res && $res->num_rows > 0) {
+            $conn->query("UPDATE signage_items SET content='$json', type='Setting' WHERE name='SlideshowSettings'");
+        } else {
+            $conn->query("INSERT INTO signage_items (name, content, type) VALUES ('SlideshowSettings', '$json', 'Setting')");
+        }
+        echo json_encode(['success' => true]);
+        break;
+    case 'get_gallery_images':
+        // Get all images in Galeri category ordered by sort_order
+        $category = $conn->real_escape_string($_GET['category'] ?? 'Galeri');
+        $items = [];
+        $result = $conn->query("SELECT id, name, content, type, category, sort_order FROM signage_items WHERE category='$category' AND type='Images' ORDER BY sort_order ASC, id ASC");
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                if (!empty($row['content'])) {
+                    $items[] = $row;
+                }
+            }
+        }
+        echo json_encode(['success' => true, 'images' => $items]);
+        break;
+    case 'list_activities':
+        // Get activities for current month
+        $category = $conn->real_escape_string($_GET['category'] ?? 'Kegiatan');
+        $items = [];
+        $result = $conn->query("SELECT * FROM activities WHERE category='$category' ORDER BY no ASC, id ASC");
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $items[] = $row;
+            }
+        }
+        echo json_encode(['success' => true, 'activities' => $items]);
+        break;
+    case 'get_activity':
+        $id = intval($_GET['id'] ?? 0);
+        $result = $conn->query("SELECT * FROM activities WHERE id=$id");
+        $item = $result ? $result->fetch_assoc() : null;
+        echo json_encode(['success' => true, 'data' => $item]);
+        break;
+    case 'add_activity':
+        $no = intval($_POST['no'] ?? 0);
+        $kegiatan = $conn->real_escape_string($_POST['kegiatan'] ?? '');
+        $tempat = $conn->real_escape_string($_POST['tempat'] ?? '');
+        $waktu = $conn->real_escape_string($_POST['waktu'] ?? '');
+        $tahun = intval($_POST['tahun'] ?? 0);
+        $bulan = $conn->real_escape_string($_POST['bulan'] ?? '');
+        $status = $conn->real_escape_string($_POST['status'] ?? '');
+        $category = $conn->real_escape_string($_POST['category'] ?? 'Kegiatan');
+        
+        $result = $conn->query("INSERT INTO activities (no, kegiatan, tempat, waktu, tahun, bulan, status, category) VALUES ($no, '$kegiatan', '$tempat', '$waktu', $tahun, '$bulan', '$status', '$category')");
+        if ($result) {
+            echo json_encode(['success' => true]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $conn->error]);
+        }
+        break;
+    case 'edit_activity':
+        $id = intval($_POST['id'] ?? 0);
+        $no = intval($_POST['no'] ?? 0);
+        $kegiatan = $conn->real_escape_string($_POST['kegiatan'] ?? '');
+        $tempat = $conn->real_escape_string($_POST['tempat'] ?? '');
+        $waktu = $conn->real_escape_string($_POST['waktu'] ?? '');
+        $tahun = intval($_POST['tahun'] ?? 0);
+        $bulan = $conn->real_escape_string($_POST['bulan'] ?? '');
+        $status = $conn->real_escape_string($_POST['status'] ?? '');
+        $category = $conn->real_escape_string($_POST['category'] ?? 'Kegiatan');
+        
+        $result = $conn->query("UPDATE activities SET no=$no, kegiatan='$kegiatan', tempat='$tempat', waktu='$waktu', tahun=$tahun, bulan='$bulan', status='$status', category='$category' WHERE id=$id");
+        if ($result) {
+            echo json_encode(['success' => true]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $conn->error]);
+        }
+        break;
+    case 'delete_activity':
+        $id = intval($_POST['id'] ?? 0);
+        $result = $conn->query("DELETE FROM activities WHERE id=$id");
+        echo json_encode(['success' => true]);
         break;
     default:
         echo json_encode(['error' => 'Invalid action']);

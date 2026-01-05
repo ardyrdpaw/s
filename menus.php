@@ -7,7 +7,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin'){
 }
 ?>
 <div class="container-fluid mt-4">
-  <h1 class="h3 mb-4">Manage Menus</h1>
+  <h1 class="h3 mb-4">Menus</h1>
   <div id="crudAlert" style="display:none;"></div>
   <div class="card mt-4">
     <div class="card-header">Menus</div>
